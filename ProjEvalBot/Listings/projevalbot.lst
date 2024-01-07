@@ -1,0 +1,1325 @@
+
+
+
+ARM Macro Assembler    Page 1 
+
+
+    1 00000000         ;; RK - Evalbot (Cortex M3 de Texas Instrument)
+    2 00000000         ; programme - Pilotage 2 Moteurs Evalbot par PWM tout en
+                        ASM (Evalbot tourne sur lui même)
+    3 00000000         
+    4 00000000         
+    5 00000000         
+    6 00000000                 AREA             |.text|, CODE, READONLY
+    7 00000000         
+    8 00000000         ; This register controls the clock gating logic in norma
+                       l Run mode
+    9 00000000 400FE108 
+                       SYSCTL_PERIPH_GPIO
+                               EQU              0x400FE108  ; SYSCTL_RCGC2_R (p
+                                                            291 datasheet de lm
+                                                            3s9b92.pdf)
+   10 00000000         
+   11 00000000         ; The GPIODATA register is the data register
+   12 00000000 40025000 
+                       GPIO_PORTF_BASE
+                               EQU              0x40025000  ; GPIO Port F (APB)
+                                                             base: 0x4002.5000 
+                                                            (p416 datasheet de 
+                                                            lm3s9B92.pdf)
+   13 00000000         
+   14 00000000         ; The GPIODATA register is the data register
+   15 00000000 40007000 
+                       GPIO_PORTD_BASE
+                               EQU              0x40007000  ; GPIO Port D (APB)
+                                                             base: 0x4000.7000 
+                                                            (p416 datasheet de 
+                                                            lm3s9B92.pdf)
+   16 00000000 40024000 
+                       GPIO_PORTE_BASE
+                               EQU              0x40024000  ; GPIO Port E (APB)
+                                                             base: 0x4002.4000 
+                                                            (p416 datasheet de 
+                                                            lm3s9B92.pdf)
+   17 00000000         
+   18 00000000         ; configure the corresponding pin to be an output
+   19 00000000         ; all GPIO pins are inputs by default
+   20 00000000 00000400 
+                       GPIO_O_DIR
+                               EQU              0x00000400  ; GPIO Direction (p
+                                                            417 datasheet de lm
+                                                            3s9B92.pdf)
+   21 00000000         
+   22 00000000         ; The GPIODR2R register is the 2-mA drive control regist
+                       er
+   23 00000000         ; By default, all GPIO pins have 2-mA drive.
+   24 00000000 00000500 
+                       GPIO_O_DR2R
+                               EQU              0x00000500  ; GPIO 2-mA Drive S
+                                                            elect (p428 datashe
+                                                            et de lm3s9B92.pdf)
+                                                            
+   25 00000000         
+   26 00000000         ; Digital enable register
+   27 00000000         ; To use the pin as a digital input or output, the corre
+                       sponding GPIODEN bit must be set.
+
+
+
+ARM Macro Assembler    Page 2 
+
+
+   28 00000000 0000051C 
+                       GPIO_O_DEN
+                               EQU              0x0000051C  ; GPIO Digital Enab
+                                                            le (p437 datasheet 
+                                                            de lm3s9B92.pdf)
+   29 00000000         
+   30 00000000         ; Pul_up
+   31 00000000 00000510 
+                       GPIO_I_PUR
+                               EQU              0x00000510  ; GPIO Pull-Up (p43
+                                                            2 datasheet de lm3s
+                                                            9B92.pdf)
+   32 00000000         
+   33 00000000         ; Broches select
+   34 00000000 00000010 
+                       BROCHE4 EQU              0x10        ; led1 sur broche 4
+                                                            
+   35 00000000 00000020 
+                       BROCHE5 EQU              0x20        ; led2 sur broche 5
+                                                            
+   36 00000000 00000030 
+                       BROCHE4_5
+                               EQU              0x30        ; led1 & led2 sur b
+                                                            roche 4 et 5
+   37 00000000 00000040 
+                       BROCHE6 EQU              0x40        ; bouton poussoir1
+   38 00000000 00000080 
+                       BROCHE7 EQU              0x80        ; bouton poussoir2
+   39 00000000 000000C0 
+                       BROCHE6_7
+                               EQU              0xC0        ; bouton poussoir1 
+                                                            & bouton poussoir2 
+                                                            sur broche 6 et 7
+   40 00000000 00000001 
+                       BROCHE0 EQU              0x01        ; bumper1 
+   41 00000000 00000002 
+                       BROCHE1 EQU              0x02        ; bumper2
+   42 00000000 00000003 
+                       BROCHE0_1
+                               EQU              0x03        ; bumper1 & bumper2
+                                                             sur broche 0 et 1
+   43 00000000         
+   44 00000000 0020000F 
+                       DUREE   EQU              0x0020000F  ;0x002FFFFF
+   45 00000000         
+   46 00000000                 ENTRY
+   47 00000000                 EXPORT           __main
+   48 00000000         
+   49 00000000         ;; The IMPORT command specifies that a symbol is defined
+                        in a shared object at runtime.
+   50 00000000                 IMPORT           MOTEUR_INIT ; initialise les mo
+                                                            teurs (configure le
+                                                            s pwms + GPIO)
+   51 00000000         
+   52 00000000                 IMPORT           MOTEUR_DROIT_ON ; activer le mo
+                                                            teur droit
+   53 00000000                 IMPORT           MOTEUR_DROIT_OFF ; déactiver le
+                                                             moteur droit
+   54 00000000                 IMPORT           MOTEUR_DROIT_AVANT ; moteur dro
+
+
+
+ARM Macro Assembler    Page 3 
+
+
+                                                            it tourne vers l'av
+                                                            ant
+   55 00000000                 IMPORT           MOTEUR_DROIT_ARRIERE ; moteur d
+                                                            roit tourne vers l'
+                                                            arrière
+   56 00000000                 IMPORT           MOTEUR_DROIT_INVERSE ; inverse 
+                                                            le sens de rotation
+                                                             du moteur droit
+   57 00000000         
+   58 00000000                 IMPORT           MOTEUR_GAUCHE_ON ; activer le m
+                                                            oteur gauche
+   59 00000000                 IMPORT           MOTEUR_GAUCHE_OFF ; déactiver l
+                                                            e moteur gauche
+   60 00000000                 IMPORT           MOTEUR_GAUCHE_AVANT ; moteur ga
+                                                            uche tourne vers l'
+                                                            avant
+   61 00000000                 IMPORT           MOTEUR_GAUCHE_ARRIERE ; moteur 
+                                                            gauche tourne vers 
+                                                            l'arrière
+   62 00000000                 IMPORT           MOTEUR_GAUCHE_INVERSE ; inverse
+                                                             le sens de rotatio
+                                                            n du moteur gauche
+   63 00000000         
+   64 00000000         
+   65 00000000         __main
+   66 00000000         
+   67 00000000         ; ;; Enable the Port F & D peripheral clock   (p291 data
+                       sheet de lm3s9B96.pdf)
+   68 00000000         ; ;;         
+   69 00000000 4EA9            ldr              r6, = SYSCTL_PERIPH_GPIO 
+                                                            ;; RCGC2
+   70 00000002 F04F 0038       mov              r0, #0x00000038 ;; Enable clock
+                                                             sur GPIO D, E et F
+                                                             où sont branchés l
+                                                            es leds (0x38 == 0b
+                                                            101000)
+   71 00000006         ; ;;                               (GPIO::FEDCBA)
+   72 00000006 6030            str              r0, [r6]
+   73 00000008         
+   74 00000008         ; ;; "There must be a delay of 3 system clocks before an
+                       y GPIO reg. access  (p413 datasheet de lm3s9B92.pdf)
+   75 00000008 BF00            nop                          ;; tres tres import
+                                                            ant....
+   76 0000000A BF00            nop
+   77 0000000C BF00            nop                          ;; pas necessaire e
+                                                            n simu ou en debbug
+                                                             step by step...
+   78 0000000E         
+   79 0000000E         ;^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^CONFIGURATION LED
+   80 0000000E         
+   81 0000000E 4EA7            ldr              r6, = GPIO_PORTF_BASE+GPIO_O_DI
+R 
+                                                            ;; 1 Pin du portF e
+                                                            n sortie (broche 4 
+                                                            : 00010000)
+   82 00000010 F04F 0030       ldr              r0, = BROCHE4_5
+   83 00000014 6030            str              r0, [r6]
+   84 00000016         
+   85 00000016 4EA6            ldr              r6, = GPIO_PORTF_BASE+GPIO_O_DE
+
+
+
+ARM Macro Assembler    Page 4 
+
+
+N 
+                                                            ;; Enable Digital F
+                                                            unction 
+   86 00000018 F04F 0030       ldr              r0, = BROCHE4_5
+   87 0000001C 6030            str              r0, [r6]
+   88 0000001E         
+   89 0000001E 4EA5            ldr              r6, = GPIO_PORTF_BASE+GPIO_O_DR
+2R 
+                                                            ;; Choix de l'inten
+                                                            sité de sortie (2mA
+                                                            )
+   90 00000020 F04F 0030       ldr              r0, = BROCHE4_5
+   91 00000024 6030            str              r0, [r6]
+   92 00000026         
+   93 00000026 F04F 0200       mov              r2, #0x000  ;; pour eteindre LE
+                                                            D
+   94 0000002A         ;vvvvvvvvvvvvvvvvvvvvvvvFin configuration LED 
+   95 0000002A         
+   96 0000002A         ;^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^CONFIGURATION Switch
+   97 0000002A         
+   98 0000002A 4FA3            ldr              r7, = GPIO_PORTD_BASE+GPIO_I_PU
+R 
+                                                            ;; Pul_up 
+   99 0000002C F04F 00C0       ldr              r0, = BROCHE6_7
+  100 00000030 6038            str              r0, [r7]
+  101 00000032         
+  102 00000032 4FA2            ldr              r7, = GPIO_PORTD_BASE+GPIO_O_DE
+N 
+                                                            ;; Enable Digital F
+                                                            unction 
+  103 00000034 F04F 00C0       ldr              r0, = BROCHE6_7
+  104 00000038 6038            str              r0, [r7]
+  105 0000003A         
+  106 0000003A 4FA1            ldr              r7, = GPIO_PORTD_BASE + (BROCHE
+6<<2) 
+                                                            ;; @data Register =
+                                                             @base + (mask<<2) 
+                                                            ==> Switcher
+  107 0000003C         ;vvvvvvvvvvvvvvvvvvvvvvvFin configuration Switch 
+  108 0000003C         
+  109 0000003C         ;^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^CONFIGURATION Bumper
+  110 0000003C         
+  111 0000003C F8DF 8284       ldr              r8, = GPIO_PORTE_BASE+GPIO_I_PU
+R 
+                                                            ;; Pul_up 
+  112 00000040 F04F 0003       ldr              r0, = BROCHE0_1
+  113 00000044 F8C8 0000       str              r0, [r8]
+  114 00000048         
+  115 00000048 F8DF 827C       ldr              r8, = GPIO_PORTE_BASE+GPIO_O_DE
+N 
+                                                            ;; Enable Digital F
+                                                            unction 
+  116 0000004C F04F 0003       ldr              r0, = BROCHE0_1
+  117 00000050 F8C8 0000       str              r0, [r8]
+  118 00000054         
+  119 00000054 F8DF 8274       ldr              r8, = GPIO_PORTE_BASE + (BROCHE
+0_1<<2) 
+                                                            ;; @data Register =
+                                                             @base + (mask<<2) 
+
+
+
+ARM Macro Assembler    Page 5 
+
+
+                                                            ==> Switcher
+  120 00000058         ;vvvvvvvvvvvvvvvvvvvvvvvFin configuration Bumper
+  121 00000058         
+  122 00000058         ; Configure les PWM + GPIO
+  123 00000058 F7FF FFFE       BL               MOTEUR_INIT
+  124 0000005C         
+  125 0000005C         ; Vérifie l'état du bouton et continue uniquement lorsqu
+                       e le bouton est enfoncé
+  126 0000005C         ReadState
+  127 0000005C         
+  128 0000005C         ; Charge la valeur du bouton dans le registre r10
+  129 0000005C         ; Compare la valeur du bouton avec la position enfoncé
+  130 0000005C F8D7 A000       ldr              r10,[r7]
+  131 00000060 F1BA 0F00       CMP              r10, #0x00
+  132 00000064 D1FA            BNE              ReadState
+  133 00000066         
+  134 00000066         ; Active les moteurs droit et gauche
+  135 00000066 F7FF FFFE       BL               MOTEUR_DROIT_ON
+  136 0000006A F7FF FFFE       BL               MOTEUR_GAUCHE_ON
+  137 0000006E         
+  138 0000006E         ; Boucle de pilotage des 2 Moteurs
+  139 0000006E         loop
+  140 0000006E         ; Evalbot avance droit devant
+  141 0000006E F7FF FFFE       BL               MOTEUR_DROIT_AVANT
+  142 00000072 F7FF FFFE       BL               MOTEUR_GAUCHE_AVANT
+  143 00000076         
+  144 00000076         ; Avancement pendant une période (deux WAIT)
+  145 00000076 F000 F803       BL               WAIT        ; BL (Branchement v
+                                                            ers le lien WAIT); 
+                                                            possibilité de reto
+                                                            ur à la suite avec 
+                                                            (BX LR)
+  146 0000007A F000 F801       BL               WAIT
+  147 0000007E         
+  148 0000007E E7F6            b                loop
+  149 00000080         
+  150 00000080         ; Boucle d'attante
+  151 00000080         WAIT
+  152 00000080         ; Délai d'attente 
+  153 00000080 4993            ldr              r1, =0x1FFFF
+  154 00000082         
+  155 00000082 F04F 0800       ldr              r8, =0      ; Compteur pour le 
+                                                            pare-chocs droit
+  156 00000086 F04F 0900       ldr              r9, =0      ; Compteur pour le 
+                                                            pare-chocs gauche
+  157 0000008A         
+  158 0000008A         ; Boucle d'attente d'une action
+  159 0000008A         wait
+  160 0000008A         
+  161 0000008A         ; Vérifie si le bouton 1 est enfoncé pour redémarrer le 
+                       robot (après le bouton 2)
+  162 0000008A 4F8D            ldr              r7, = GPIO_PORTD_BASE + (BROCHE
+6<<2) 
+                                                            ;; @data Register =
+                                                             @base + (mask<<2) 
+                                                            ==> Switcher
+  163 0000008C F8D7 A000       ldr              r10,[r7]
+  164 00000090 F1BA 0F00       CMP              r10,#0x00
+  165 00000094 D017            BEQ              ActionBouton1
+
+
+
+ARM Macro Assembler    Page 6 
+
+
+  166 00000096         
+  167 00000096         ; Vérifie si le bouton 2 est enfoncé pour arrêter le rob
+                       ot
+  168 00000096 4F8F            ldr              r7, = GPIO_PORTD_BASE + (BROCHE
+7<<2) 
+                                                            ;; @data Register =
+                                                             @base + (mask<<2) 
+                                                            ==> Switcher
+  169 00000098 F8D7 A000       ldr              r10,[r7]
+  170 0000009C F1BA 0F00       CMP              r10,#0x00
+  171 000000A0 F000 8016       BEQ.W            ActionBouton2
+  172 000000A4         
+  173 000000A4         ; Vérifie si le bumper droit est enfoncé, éteint les LED
+                       s, allume la LED lorsqu'il est relâché, attend, et redém
+                       arre
+  174 000000A4 4C8C            ldr              r4, = GPIO_PORTE_BASE + (BROCHE
+0<<2) 
+                                                            ;; @data Register =
+                                                             @base + (mask<<2) 
+                                                            ==> Switcher
+  175 000000A6 F8D4 A000       ldr              r10,[r4]
+  176 000000AA F1BA 0F00       CMP              r10,#0x00
+  177 000000AE F000 8018       BEQ.W            ActionBumperDroit
+  178 000000B2         
+  179 000000B2         ; Vérifie si si le bumper gauche est enfoncé, éteint les
+                        LEDs, allume la LED lorsqu'il est relâché, attend, et r
+                       edémarre
+  180 000000B2 4C8A            ldr              r4, = GPIO_PORTE_BASE + (BROCHE
+1<<2) 
+                                                            ;; @data Register =
+                                                             @base + (mask<<2) 
+                                                            ==> Switcher
+  181 000000B4 F8D4 A000       ldr              r10,[r4]
+  182 000000B8 F1BA 0F00       CMP              r10,#0x00
+  183 000000BC F000 8081       BEQ.W            ActionBumperGauche
+  184 000000C0         
+  185 000000C0         ; Décrémente la valeur de délai
+  186 000000C0 3901            subs             r1, #1
+  187 000000C2         
+  188 000000C2 D1E2            bne              wait
+  189 000000C4         
+  190 000000C4         ;; retour à la suite du lien de branchement
+  191 000000C4 4770            BX               LR
+  192 000000C6         
+  193 000000C6         ; Actions associées à l'appui du bouton 1
+  194 000000C6         ActionBouton1
+  195 000000C6         ; Active les moteurs droit et gauche
+  196 000000C6 F7FF FFFE       BL               MOTEUR_DROIT_ON
+  197 000000CA F7FF FFFE       BL               MOTEUR_GAUCHE_ON
+  198 000000CE         
+  199 000000CE E7CE            B                loop
+  200 000000D0         
+  201 000000D0         ; Actions associées à l'appui du bouton 2
+  202 000000D0         ActionBouton2
+  203 000000D0         ; Désactive les moteurs droit et gauche
+  204 000000D0 F7FF FFFE       BL               MOTEUR_DROIT_OFF
+  205 000000D4 F7FF FFFE       BL               MOTEUR_GAUCHE_OFF
+  206 000000D8         
+  207 000000D8         ; Initialise la valeur à 0 pour éteindre les LEDs associ
+
+
+
+ARM Macro Assembler    Page 7 
+
+
+                       ées (broches 4 et 5)
+  208 000000D8 F04F 0200       mov              r2, #0
+  209 000000DC 4C80            ldr              r4, = GPIO_PORTF_BASE + (BROCHE
+4_5<<2)
+  210 000000DE 6022            str              r2, [r4]
+  211 000000E0         
+  212 000000E0 E7C5            B                loop
+  213 000000E2         
+  214 000000E2         ; Actions associées à l'appui du bumper droit
+  215 000000E2         ActionBumperDroit
+  216 000000E2         ; Désactive les moteurs droit et gauche
+  217 000000E2 F7FF FFFE       BL               MOTEUR_DROIT_OFF
+  218 000000E6 F7FF FFFE       BL               MOTEUR_GAUCHE_OFF
+  219 000000EA         
+  220 000000EA         ; Éteint la LED associée (broche 4)
+  221 000000EA 4C7E            ldr              r4, = GPIO_PORTF_BASE + (BROCHE
+4<<2)
+  222 000000EC F04F 0210       mov              r2, #BROCHE4
+  223 000000F0 6022            str              r2, [r4]
+  224 000000F2         ; Attend la durée spécifiée
+  225 000000F2 497D            ldr              r1, = DUREE
+  226 000000F4         
+  227 000000F4 3901    wait_d1 subs             r1, #1
+  228 000000F6 D1FD            bne              wait_d1
+  229 000000F8         
+  230 000000F8 F7FF FFC2       BL               WAIT        ; BL (Branchement v
+                                                            ers le lien WAIT); 
+                                                            possibilité de reto
+                                                            ur à la suite avec 
+                                                            (BX LR)
+  231 000000FC F7FF FFC0       BL               WAIT
+  232 00000100         
+  233 00000100         ; Inverse les moteurs droit et gauche
+  234 00000100 F7FF FFFE       BL               MOTEUR_DROIT_INVERSE
+  235 00000104 F7FF FFFE       BL               MOTEUR_GAUCHE_INVERSE
+  236 00000108         
+  237 00000108         ; Attend la durée spécifiée pour la boucle wait_d1
+  238 00000108 4977            ldr              r1, = DUREE
+  239 0000010A         
+  240 0000010A 3901    wait_d2 subs             r1, #1
+  241 0000010C D1FD            bne              wait_d2
+  242 0000010E         ; Obstacle rencontrer à droite
+  243 0000010E F7FF FFFE       BL               MOTEUR_DROIT_OFF
+  244 00000112 F7FF FFFE       BL               MOTEUR_GAUCHE_OFF
+  245 00000116         
+  246 00000116 F7FF FFB3       BL               WAIT        ; BL (Branchement v
+                                                            ers le lien WAIT); 
+                                                            possibilité de reto
+                                                            ur à la suite avec 
+                                                            (BX LR)
+  247 0000011A F7FF FFB1       BL               WAIT
+  248 0000011E         
+  249 0000011E F7FF FFFE       BL               MOTEUR_DROIT_ON
+  250 00000122 F7FF FFFE       BL               MOTEUR_GAUCHE_ON
+  251 00000126         
+  252 00000126 F7FF FFAB       BL               WAIT        ; BL (Branchement v
+                                                            ers le lien WAIT); 
+                                                            possibilité de reto
+                                                            ur à la suite avec 
+
+
+
+ARM Macro Assembler    Page 8 
+
+
+                                                            (BX LR)
+  253 0000012A F7FF FFA9       BL               WAIT
+  254 0000012E         
+  255 0000012E F7FF FFFE       BL               MOTEUR_DROIT_OFF
+  256 00000132 F7FF FFFE       BL               MOTEUR_GAUCHE_ON
+  257 00000136         
+  258 00000136 F7FF FFA3       BL               WAIT        ; BL (Branchement v
+                                                            ers le lien WAIT); 
+                                                            possibilité de reto
+                                                            ur à la suite avec 
+                                                            (BX LR)
+  259 0000013A F7FF FFA1       BL               WAIT
+  260 0000013E         
+  261 0000013E F7FF FFFE       BL               MOTEUR_DROIT_AVANT
+  262 00000142 F7FF FFFE       BL               MOTEUR_GAUCHE_AVANT
+  263 00000146         
+  264 00000146 F7FF FF9B       BL               WAIT        ; BL (Branchement v
+                                                            ers le lien WAIT); 
+                                                            possibilité de reto
+                                                            ur à la suite avec 
+                                                            (BX LR)
+  265 0000014A F7FF FF99       BL               WAIT
+  266 0000014E         
+  267 0000014E F7FF FFFE       BL               MOTEUR_DROIT_ON
+  268 00000152 F7FF FFFE       BL               MOTEUR_GAUCHE_OFF
+  269 00000156         
+  270 00000156 F7FF FF93       BL               WAIT        ; BL (Branchement v
+                                                            ers le lien WAIT); 
+                                                            possibilité de reto
+                                                            ur à la suite avec 
+                                                            (BX LR)
+  271 0000015A F7FF FF91       BL               WAIT
+  272 0000015E         
+  273 0000015E F7FF FFFE       BL               MOTEUR_DROIT_ON
+  274 00000162 F7FF FFFE       BL               MOTEUR_GAUCHE_OFF
+  275 00000166         
+  276 00000166 F7FF FF8B       BL               WAIT        ; BL (Branchement v
+                                                            ers le lien WAIT); 
+                                                            possibilité de reto
+                                                            ur à la suite avec 
+                                                            (BX LR)
+  277 0000016A F7FF FF89       BL               WAIT
+  278 0000016E         
+  279 0000016E F7FF FFFE       BL               MOTEUR_DROIT_OFF
+  280 00000172 F7FF FFFE       BL               MOTEUR_GAUCHE_ON
+  281 00000176         
+  282 00000176 F7FF FF83       BL               WAIT        ; BL (Branchement v
+                                                            ers le lien WAIT); 
+                                                            possibilité de reto
+                                                            ur à la suite avec 
+                                                            (BX LR)
+  283 0000017A F7FF FF81       BL               WAIT
+  284 0000017E         
+  285 0000017E F7FF FFFE       BL               MOTEUR_DROIT_OFF
+  286 00000182 F7FF FFFE       BL               MOTEUR_GAUCHE_ON
+  287 00000186         
+  288 00000186 F7FF FF7B       BL               WAIT        ; BL (Branchement v
+                                                            ers le lien WAIT); 
+                                                            possibilité de reto
+
+
+
+ARM Macro Assembler    Page 9 
+
+
+                                                            ur à la suite avec 
+                                                            (BX LR)
+  289 0000018A F7FF FF79       BL               WAIT
+  290 0000018E         
+  291 0000018E F7FF FFFE       BL               MOTEUR_DROIT_ON
+  292 00000192 F7FF FFFE       BL               MOTEUR_GAUCHE_ON
+  293 00000196         
+  294 00000196         ; Clignotement de la LED associée (broche 4)
+  295 00000196         blinky_d
+  296 00000196         ; Allume la LED associée (broche 4)
+  297 00000196 4C53            ldr              r4, = GPIO_PORTF_BASE + (BROCHE
+4<<2)
+  298 00000198 F04F 0210       mov              r2, #BROCHE4
+  299 0000019C 6022            str              r2, [r4]
+  300 0000019E         
+  301 0000019E         ; Attend la durée spécifiée pour la boucle WAIT
+  302 0000019E 4952            ldr              r1, =DUREE
+  303 000001A0 F7FF FF6E       BL               WAIT
+  304 000001A4         
+  305 000001A4         ; Éteint la LED associée (broche 4)
+  306 000001A4 4C4F            ldr              r4, = GPIO_PORTF_BASE + (BROCHE
+4<<2)
+  307 000001A6 F04F 0200       mov              r2, #0      ; Valeur pour étein
+                                                            dre la LED
+  308 000001AA 6022            str              r2, [r4]
+  309 000001AC         
+  310 000001AC         ; Attend la durée spécifiée pour la boucle WAIT
+  311 000001AC 494E            ldr              r1, =DUREE
+  312 000001AE F7FF FF67       BL               WAIT
+  313 000001B2         
+  314 000001B2         ; Décrémente le nombre de clignotements restants
+  315 000001B2 1E6D            subs             r5, r5, #1
+  316 000001B4 D1EF            bne              blinky_d
+  317 000001B6         
+  318 000001B6         ; Incrémente le compteur du pare-chocs droit
+  319 000001B6 F118 0801       adds             r8, #1
+  320 000001BA         
+  321 000001BA         ; Vérifie si le compteur a atteint 3
+  322 000001BA F1B8 0F03       CMP              r8, #3
+  323 000001BE E787            B                ActionBouton2
+  324 000001C0         
+  325 000001C0 E755            B                loop
+  326 000001C2         
+  327 000001C2         ; Actions associées à l'appui du bumper gauche
+  328 000001C2         ActionBumperGauche
+  329 000001C2         ; Désactive les moteurs droit et gauche
+  330 000001C2 F7FF FFFE       BL               MOTEUR_DROIT_OFF
+  331 000001C6 F7FF FFFE       BL               MOTEUR_GAUCHE_OFF
+  332 000001CA         
+  333 000001CA         ; Éteint la LED associée (broche 5)
+  334 000001CA 4C48            ldr              r4, = GPIO_PORTF_BASE + (BROCHE
+5<<2)
+  335 000001CC F04F 0220       mov              r2, #BROCHE5
+  336 000001D0 6022            str              r2, [r4]
+  337 000001D2         ; Attend la durée spécifiée
+  338 000001D2 4945            ldr              r1, = DUREE
+  339 000001D4         
+  340 000001D4 3901    wait_g1 subs             r1, #1
+  341 000001D6 D1FD            bne              wait_g1
+
+
+
+ARM Macro Assembler    Page 10 
+
+
+  342 000001D8         
+  343 000001D8 F7FF FF52       BL               WAIT        ; BL (Branchement v
+                                                            ers le lien WAIT); 
+                                                            possibilité de reto
+                                                            ur à la suite avec 
+                                                            (BX LR)
+  344 000001DC F7FF FF50       BL               WAIT
+  345 000001E0         
+  346 000001E0         ; Inverse les moteurs droit et gauche
+  347 000001E0 F7FF FFFE       BL               MOTEUR_DROIT_INVERSE
+  348 000001E4 F7FF FFFE       BL               MOTEUR_GAUCHE_INVERSE
+  349 000001E8         
+  350 000001E8         ; Attend la durée spécifiée pour la boucle wait_g1
+  351 000001E8 493F            ldr              r1, = DUREE
+  352 000001EA         
+  353 000001EA 3901    wait_g2 subs             r1, #1
+  354 000001EC D1FD            bne              wait_g2
+  355 000001EE         ; Obstacle rencontrer à gauche
+  356 000001EE F7FF FFFE       BL               MOTEUR_DROIT_OFF
+  357 000001F2 F7FF FFFE       BL               MOTEUR_GAUCHE_OFF
+  358 000001F6         
+  359 000001F6 F7FF FF43       BL               WAIT        ; BL (Branchement v
+                                                            ers le lien WAIT); 
+                                                            possibilité de reto
+                                                            ur à la suite avec 
+                                                            (BX LR)
+  360 000001FA F7FF FF41       BL               WAIT
+  361 000001FE         
+  362 000001FE F7FF FFFE       BL               MOTEUR_DROIT_ON
+  363 00000202 F7FF FFFE       BL               MOTEUR_GAUCHE_ON
+  364 00000206         
+  365 00000206 F7FF FF3B       BL               WAIT        ; BL (Branchement v
+                                                            ers le lien WAIT); 
+                                                            possibilité de reto
+                                                            ur à la suite avec 
+                                                            (BX LR)
+  366 0000020A F7FF FF39       BL               WAIT
+  367 0000020E         
+  368 0000020E F7FF FFFE       BL               MOTEUR_DROIT_ON
+  369 00000212 F7FF FFFE       BL               MOTEUR_GAUCHE_OFF
+  370 00000216         
+  371 00000216 F7FF FF33       BL               WAIT        ; BL (Branchement v
+                                                            ers le lien WAIT); 
+                                                            possibilité de reto
+                                                            ur à la suite avec 
+                                                            (BX LR)
+  372 0000021A F7FF FF31       BL               WAIT
+  373 0000021E         
+  374 0000021E F7FF FFFE       BL               MOTEUR_DROIT_AVANT
+  375 00000222 F7FF FFFE       BL               MOTEUR_GAUCHE_AVANT
+  376 00000226         
+  377 00000226 F7FF FF2B       BL               WAIT        ; BL (Branchement v
+                                                            ers le lien WAIT); 
+                                                            possibilité de reto
+                                                            ur à la suite avec 
+                                                            (BX LR)
+  378 0000022A F7FF FF29       BL               WAIT
+  379 0000022E         
+  380 0000022E F7FF FFFE       BL               MOTEUR_DROIT_OFF
+
+
+
+ARM Macro Assembler    Page 11 
+
+
+  381 00000232 F7FF FFFE       BL               MOTEUR_GAUCHE_ON
+  382 00000236         
+  383 00000236 F7FF FF23       BL               WAIT        ; BL (Branchement v
+                                                            ers le lien WAIT); 
+                                                            possibilité de reto
+                                                            ur à la suite avec 
+                                                            (BX LR)
+  384 0000023A F7FF FF21       BL               WAIT
+  385 0000023E         
+  386 0000023E F7FF FFFE       BL               MOTEUR_DROIT_OFF
+  387 00000242 F7FF FFFE       BL               MOTEUR_GAUCHE_ON
+  388 00000246         
+  389 00000246 F7FF FF1B       BL               WAIT        ; BL (Branchement v
+                                                            ers le lien WAIT); 
+                                                            possibilité de reto
+                                                            ur à la suite avec 
+                                                            (BX LR)
+  390 0000024A F7FF FF19       BL               WAIT
+  391 0000024E         
+  392 0000024E F7FF FFFE       BL               MOTEUR_DROIT_ON
+  393 00000252 F7FF FFFE       BL               MOTEUR_GAUCHE_OFF
+  394 00000256         
+  395 00000256 F7FF FF13       BL               WAIT        ; BL (Branchement v
+                                                            ers le lien WAIT); 
+                                                            possibilité de reto
+                                                            ur à la suite avec 
+                                                            (BX LR)
+  396 0000025A F7FF FF11       BL               WAIT
+  397 0000025E         
+  398 0000025E F7FF FFFE       BL               MOTEUR_DROIT_ON
+  399 00000262 F7FF FFFE       BL               MOTEUR_GAUCHE_OFF
+  400 00000266         
+  401 00000266 F7FF FF0B       BL               WAIT        ; BL (Branchement v
+                                                            ers le lien WAIT); 
+                                                            possibilité de reto
+                                                            ur à la suite avec 
+                                                            (BX LR)
+  402 0000026A F7FF FF09       BL               WAIT
+  403 0000026E         
+  404 0000026E F7FF FFFE       BL               MOTEUR_DROIT_ON
+  405 00000272 F7FF FFFE       BL               MOTEUR_GAUCHE_ON
+  406 00000276         
+  407 00000276         ; Clignotement de la LED associée (broche 5)
+  408 00000276         blinky_g
+  409 00000276         ; Allume la LED associée à la broche 5
+  410 00000276 4C1D            ldr              r4, = GPIO_PORTF_BASE + (BROCHE
+5<<2)
+  411 00000278 F04F 0220       mov              r2, #BROCHE5 ; Valeur pour allu
+                                                            mer la LED
+  412 0000027C 6022            str              r2, [r4]
+  413 0000027E         
+  414 0000027E 491A            ldr              r1, =DUREE
+  415 00000280 F7FF FEFE       BL               WAIT
+  416 00000284         
+  417 00000284         ; Éteint la LED associée (broche 5)
+  418 00000284 4C19            ldr              r4, = GPIO_PORTF_BASE + (BROCHE
+5<<2)
+  419 00000286 F04F 0200       mov              r2, #0      ; Valeur pour étein
+                                                            dre la LED
+
+
+
+ARM Macro Assembler    Page 12 
+
+
+  420 0000028A 6022            str              r2, [r4]
+  421 0000028C         
+  422 0000028C         ; Attend la durée spécifiée pour la boucle WAIT
+  423 0000028C 4916            ldr              r1, =DUREE
+  424 0000028E F7FF FEF7       BL               WAIT
+  425 00000292         
+  426 00000292         ; Décrémente le nombre de clignotements restants
+  427 00000292 1E6D            subs             r5, r5, #1
+  428 00000294 D1EF            bne              blinky_g
+  429 00000296         
+  430 00000296         ; Incrémente le compteur du pare-chocs droit
+  431 00000296 F119 0901       adds             r9, #1
+  432 0000029A         
+  433 0000029A         ; Vérifie si le compteur a atteint 3
+  434 0000029A F1B9 0F03       CMP              r9, #3
+  435 0000029E E717            B                ActionBouton2
+  436 000002A0         
+  437 000002A0 E6E5            B                loop
+  438 000002A2         
+  439 000002A2 BF00            NOP
+  440 000002A4 BF00            NOP
+  441 000002A6                 END
+              00 00 400FE108 
+              40025400 
+              4002551C 
+              40025500 
+              40007510 
+              4000751C 
+              40007100 
+              40024510 
+              4002451C 
+              4002400C 
+              0001FFFF 
+              40007200 
+              40024004 
+              40024008 
+              400250C0 
+              40025040 
+              0020000F 
+              40025080 
+Command Line: --debug --xref --diag_suppress=9931 --cpu=Cortex-M3 --apcs=interw
+ork --depend=.\objects\projevalbot.d -o.\objects\projevalbot.o -I.\RTE\_Target_
+1 -IC:\Users\theop\AppData\Local\Arm\Packs\ARM\CMSIS\5.5.1\CMSIS\Core\Include -
+IC:\Users\theop\AppData\Local\Arm\Packs\Keil\LM3S_DFP\1.1.0\Device\Include --pr
+edefine="__EVAL SETA 1" --predefine="__MICROLIB SETA 1" --predefine="__UVISION_
+VERSION SETA 528" --predefine="_RTE_ SETA 1" --predefine="LM3S9B92 SETA 1" --li
+st=.\listings\projevalbot.lst ProjEvalBot.s
+
+
+
+ARM Macro Assembler    Page 1 Alphabetic symbol ordering
+Relocatable symbols
+
+.text 00000000
+
+Symbol: .text
+   Definitions
+      At line 6 in file ProjEvalBot.s
+   Uses
+      None
+Comment: .text unused
+ActionBouton1 000000C6
+
+Symbol: ActionBouton1
+   Definitions
+      At line 194 in file ProjEvalBot.s
+   Uses
+      At line 165 in file ProjEvalBot.s
+Comment: ActionBouton1 used once
+ActionBouton2 000000D0
+
+Symbol: ActionBouton2
+   Definitions
+      At line 202 in file ProjEvalBot.s
+   Uses
+      At line 171 in file ProjEvalBot.s
+      At line 323 in file ProjEvalBot.s
+      At line 435 in file ProjEvalBot.s
+
+ActionBumperDroit 000000E2
+
+Symbol: ActionBumperDroit
+   Definitions
+      At line 215 in file ProjEvalBot.s
+   Uses
+      At line 177 in file ProjEvalBot.s
+Comment: ActionBumperDroit used once
+ActionBumperGauche 000001C2
+
+Symbol: ActionBumperGauche
+   Definitions
+      At line 328 in file ProjEvalBot.s
+   Uses
+      At line 183 in file ProjEvalBot.s
+Comment: ActionBumperGauche used once
+ReadState 0000005C
+
+Symbol: ReadState
+   Definitions
+      At line 126 in file ProjEvalBot.s
+   Uses
+      At line 132 in file ProjEvalBot.s
+Comment: ReadState used once
+WAIT 00000080
+
+Symbol: WAIT
+   Definitions
+      At line 151 in file ProjEvalBot.s
+   Uses
+      At line 145 in file ProjEvalBot.s
+      At line 146 in file ProjEvalBot.s
+      At line 230 in file ProjEvalBot.s
+
+
+
+ARM Macro Assembler    Page 2 Alphabetic symbol ordering
+Relocatable symbols
+
+      At line 231 in file ProjEvalBot.s
+      At line 246 in file ProjEvalBot.s
+      At line 247 in file ProjEvalBot.s
+      At line 252 in file ProjEvalBot.s
+      At line 253 in file ProjEvalBot.s
+      At line 258 in file ProjEvalBot.s
+      At line 259 in file ProjEvalBot.s
+      At line 264 in file ProjEvalBot.s
+      At line 265 in file ProjEvalBot.s
+      At line 270 in file ProjEvalBot.s
+      At line 271 in file ProjEvalBot.s
+      At line 276 in file ProjEvalBot.s
+      At line 277 in file ProjEvalBot.s
+      At line 282 in file ProjEvalBot.s
+      At line 283 in file ProjEvalBot.s
+      At line 288 in file ProjEvalBot.s
+      At line 289 in file ProjEvalBot.s
+      At line 303 in file ProjEvalBot.s
+      At line 312 in file ProjEvalBot.s
+      At line 343 in file ProjEvalBot.s
+      At line 344 in file ProjEvalBot.s
+      At line 359 in file ProjEvalBot.s
+      At line 360 in file ProjEvalBot.s
+      At line 365 in file ProjEvalBot.s
+      At line 366 in file ProjEvalBot.s
+      At line 371 in file ProjEvalBot.s
+      At line 372 in file ProjEvalBot.s
+      At line 377 in file ProjEvalBot.s
+      At line 378 in file ProjEvalBot.s
+      At line 383 in file ProjEvalBot.s
+      At line 384 in file ProjEvalBot.s
+      At line 389 in file ProjEvalBot.s
+      At line 390 in file ProjEvalBot.s
+      At line 395 in file ProjEvalBot.s
+      At line 396 in file ProjEvalBot.s
+      At line 401 in file ProjEvalBot.s
+      At line 402 in file ProjEvalBot.s
+      At line 415 in file ProjEvalBot.s
+      At line 424 in file ProjEvalBot.s
+
+__main 00000000
+
+Symbol: __main
+   Definitions
+      At line 65 in file ProjEvalBot.s
+   Uses
+      At line 47 in file ProjEvalBot.s
+Comment: __main used once
+blinky_d 00000196
+
+Symbol: blinky_d
+   Definitions
+      At line 295 in file ProjEvalBot.s
+   Uses
+      At line 316 in file ProjEvalBot.s
+Comment: blinky_d used once
+blinky_g 00000276
+
+Symbol: blinky_g
+
+
+
+ARM Macro Assembler    Page 3 Alphabetic symbol ordering
+Relocatable symbols
+
+   Definitions
+      At line 408 in file ProjEvalBot.s
+   Uses
+      At line 428 in file ProjEvalBot.s
+Comment: blinky_g used once
+loop 0000006E
+
+Symbol: loop
+   Definitions
+      At line 139 in file ProjEvalBot.s
+   Uses
+      At line 148 in file ProjEvalBot.s
+      At line 199 in file ProjEvalBot.s
+      At line 212 in file ProjEvalBot.s
+      At line 325 in file ProjEvalBot.s
+      At line 437 in file ProjEvalBot.s
+
+wait 0000008A
+
+Symbol: wait
+   Definitions
+      At line 159 in file ProjEvalBot.s
+   Uses
+      At line 188 in file ProjEvalBot.s
+Comment: wait used once
+wait_d1 000000F4
+
+Symbol: wait_d1
+   Definitions
+      At line 227 in file ProjEvalBot.s
+   Uses
+      At line 228 in file ProjEvalBot.s
+Comment: wait_d1 used once
+wait_d2 0000010A
+
+Symbol: wait_d2
+   Definitions
+      At line 240 in file ProjEvalBot.s
+   Uses
+      At line 241 in file ProjEvalBot.s
+Comment: wait_d2 used once
+wait_g1 000001D4
+
+Symbol: wait_g1
+   Definitions
+      At line 340 in file ProjEvalBot.s
+   Uses
+      At line 341 in file ProjEvalBot.s
+Comment: wait_g1 used once
+wait_g2 000001EA
+
+Symbol: wait_g2
+   Definitions
+      At line 353 in file ProjEvalBot.s
+   Uses
+      At line 354 in file ProjEvalBot.s
+Comment: wait_g2 used once
+16 symbols
+
+
+
+ARM Macro Assembler    Page 1 Alphabetic symbol ordering
+Absolute symbols
+
+BROCHE0 00000001
+
+Symbol: BROCHE0
+   Definitions
+      At line 40 in file ProjEvalBot.s
+   Uses
+      At line 174 in file ProjEvalBot.s
+Comment: BROCHE0 used once
+BROCHE0_1 00000003
+
+Symbol: BROCHE0_1
+   Definitions
+      At line 42 in file ProjEvalBot.s
+   Uses
+      At line 112 in file ProjEvalBot.s
+      At line 116 in file ProjEvalBot.s
+      At line 119 in file ProjEvalBot.s
+
+BROCHE1 00000002
+
+Symbol: BROCHE1
+   Definitions
+      At line 41 in file ProjEvalBot.s
+   Uses
+      At line 180 in file ProjEvalBot.s
+Comment: BROCHE1 used once
+BROCHE4 00000010
+
+Symbol: BROCHE4
+   Definitions
+      At line 34 in file ProjEvalBot.s
+   Uses
+      At line 221 in file ProjEvalBot.s
+      At line 222 in file ProjEvalBot.s
+      At line 297 in file ProjEvalBot.s
+      At line 298 in file ProjEvalBot.s
+      At line 306 in file ProjEvalBot.s
+
+BROCHE4_5 00000030
+
+Symbol: BROCHE4_5
+   Definitions
+      At line 36 in file ProjEvalBot.s
+   Uses
+      At line 82 in file ProjEvalBot.s
+      At line 86 in file ProjEvalBot.s
+      At line 90 in file ProjEvalBot.s
+      At line 209 in file ProjEvalBot.s
+
+BROCHE5 00000020
+
+Symbol: BROCHE5
+   Definitions
+      At line 35 in file ProjEvalBot.s
+   Uses
+      At line 334 in file ProjEvalBot.s
+      At line 335 in file ProjEvalBot.s
+      At line 410 in file ProjEvalBot.s
+      At line 411 in file ProjEvalBot.s
+
+
+
+ARM Macro Assembler    Page 2 Alphabetic symbol ordering
+Absolute symbols
+
+      At line 418 in file ProjEvalBot.s
+
+BROCHE6 00000040
+
+Symbol: BROCHE6
+   Definitions
+      At line 37 in file ProjEvalBot.s
+   Uses
+      At line 106 in file ProjEvalBot.s
+      At line 162 in file ProjEvalBot.s
+
+BROCHE6_7 000000C0
+
+Symbol: BROCHE6_7
+   Definitions
+      At line 39 in file ProjEvalBot.s
+   Uses
+      At line 99 in file ProjEvalBot.s
+      At line 103 in file ProjEvalBot.s
+
+BROCHE7 00000080
+
+Symbol: BROCHE7
+   Definitions
+      At line 38 in file ProjEvalBot.s
+   Uses
+      At line 168 in file ProjEvalBot.s
+Comment: BROCHE7 used once
+DUREE 0020000F
+
+Symbol: DUREE
+   Definitions
+      At line 44 in file ProjEvalBot.s
+   Uses
+      At line 225 in file ProjEvalBot.s
+      At line 238 in file ProjEvalBot.s
+      At line 302 in file ProjEvalBot.s
+      At line 311 in file ProjEvalBot.s
+      At line 338 in file ProjEvalBot.s
+      At line 351 in file ProjEvalBot.s
+      At line 414 in file ProjEvalBot.s
+      At line 423 in file ProjEvalBot.s
+
+GPIO_I_PUR 00000510
+
+Symbol: GPIO_I_PUR
+   Definitions
+      At line 31 in file ProjEvalBot.s
+   Uses
+      At line 98 in file ProjEvalBot.s
+      At line 111 in file ProjEvalBot.s
+
+GPIO_O_DEN 0000051C
+
+Symbol: GPIO_O_DEN
+   Definitions
+      At line 28 in file ProjEvalBot.s
+   Uses
+      At line 85 in file ProjEvalBot.s
+
+
+
+ARM Macro Assembler    Page 3 Alphabetic symbol ordering
+Absolute symbols
+
+      At line 102 in file ProjEvalBot.s
+      At line 115 in file ProjEvalBot.s
+
+GPIO_O_DIR 00000400
+
+Symbol: GPIO_O_DIR
+   Definitions
+      At line 20 in file ProjEvalBot.s
+   Uses
+      At line 81 in file ProjEvalBot.s
+Comment: GPIO_O_DIR used once
+GPIO_O_DR2R 00000500
+
+Symbol: GPIO_O_DR2R
+   Definitions
+      At line 24 in file ProjEvalBot.s
+   Uses
+      At line 89 in file ProjEvalBot.s
+Comment: GPIO_O_DR2R used once
+GPIO_PORTD_BASE 40007000
+
+Symbol: GPIO_PORTD_BASE
+   Definitions
+      At line 15 in file ProjEvalBot.s
+   Uses
+      At line 98 in file ProjEvalBot.s
+      At line 102 in file ProjEvalBot.s
+      At line 106 in file ProjEvalBot.s
+      At line 162 in file ProjEvalBot.s
+      At line 168 in file ProjEvalBot.s
+
+GPIO_PORTE_BASE 40024000
+
+Symbol: GPIO_PORTE_BASE
+   Definitions
+      At line 16 in file ProjEvalBot.s
+   Uses
+      At line 111 in file ProjEvalBot.s
+      At line 115 in file ProjEvalBot.s
+      At line 119 in file ProjEvalBot.s
+      At line 174 in file ProjEvalBot.s
+      At line 180 in file ProjEvalBot.s
+
+GPIO_PORTF_BASE 40025000
+
+Symbol: GPIO_PORTF_BASE
+   Definitions
+      At line 12 in file ProjEvalBot.s
+   Uses
+      At line 81 in file ProjEvalBot.s
+      At line 85 in file ProjEvalBot.s
+      At line 89 in file ProjEvalBot.s
+      At line 209 in file ProjEvalBot.s
+      At line 221 in file ProjEvalBot.s
+      At line 297 in file ProjEvalBot.s
+      At line 306 in file ProjEvalBot.s
+      At line 334 in file ProjEvalBot.s
+      At line 410 in file ProjEvalBot.s
+      At line 418 in file ProjEvalBot.s
+
+
+
+ARM Macro Assembler    Page 4 Alphabetic symbol ordering
+Absolute symbols
+
+
+SYSCTL_PERIPH_GPIO 400FE108
+
+Symbol: SYSCTL_PERIPH_GPIO
+   Definitions
+      At line 9 in file ProjEvalBot.s
+   Uses
+      At line 69 in file ProjEvalBot.s
+Comment: SYSCTL_PERIPH_GPIO used once
+18 symbols
+
+
+
+ARM Macro Assembler    Page 1 Alphabetic symbol ordering
+External symbols
+
+MOTEUR_DROIT_ARRIERE 00000000
+
+Symbol: MOTEUR_DROIT_ARRIERE
+   Definitions
+      At line 55 in file ProjEvalBot.s
+   Uses
+      None
+Comment: MOTEUR_DROIT_ARRIERE unused
+MOTEUR_DROIT_AVANT 00000000
+
+Symbol: MOTEUR_DROIT_AVANT
+   Definitions
+      At line 54 in file ProjEvalBot.s
+   Uses
+      At line 141 in file ProjEvalBot.s
+      At line 261 in file ProjEvalBot.s
+      At line 374 in file ProjEvalBot.s
+
+MOTEUR_DROIT_INVERSE 00000000
+
+Symbol: MOTEUR_DROIT_INVERSE
+   Definitions
+      At line 56 in file ProjEvalBot.s
+   Uses
+      At line 234 in file ProjEvalBot.s
+      At line 347 in file ProjEvalBot.s
+
+MOTEUR_DROIT_OFF 00000000
+
+Symbol: MOTEUR_DROIT_OFF
+   Definitions
+      At line 53 in file ProjEvalBot.s
+   Uses
+      At line 204 in file ProjEvalBot.s
+      At line 217 in file ProjEvalBot.s
+      At line 243 in file ProjEvalBot.s
+      At line 255 in file ProjEvalBot.s
+      At line 279 in file ProjEvalBot.s
+      At line 285 in file ProjEvalBot.s
+      At line 330 in file ProjEvalBot.s
+      At line 356 in file ProjEvalBot.s
+      At line 380 in file ProjEvalBot.s
+      At line 386 in file ProjEvalBot.s
+
+MOTEUR_DROIT_ON 00000000
+
+Symbol: MOTEUR_DROIT_ON
+   Definitions
+      At line 52 in file ProjEvalBot.s
+   Uses
+      At line 135 in file ProjEvalBot.s
+      At line 196 in file ProjEvalBot.s
+      At line 249 in file ProjEvalBot.s
+      At line 267 in file ProjEvalBot.s
+      At line 273 in file ProjEvalBot.s
+      At line 291 in file ProjEvalBot.s
+      At line 362 in file ProjEvalBot.s
+      At line 368 in file ProjEvalBot.s
+      At line 392 in file ProjEvalBot.s
+
+
+
+ARM Macro Assembler    Page 2 Alphabetic symbol ordering
+External symbols
+
+      At line 398 in file ProjEvalBot.s
+      At line 404 in file ProjEvalBot.s
+
+MOTEUR_GAUCHE_ARRIERE 00000000
+
+Symbol: MOTEUR_GAUCHE_ARRIERE
+   Definitions
+      At line 61 in file ProjEvalBot.s
+   Uses
+      None
+Comment: MOTEUR_GAUCHE_ARRIERE unused
+MOTEUR_GAUCHE_AVANT 00000000
+
+Symbol: MOTEUR_GAUCHE_AVANT
+   Definitions
+      At line 60 in file ProjEvalBot.s
+   Uses
+      At line 142 in file ProjEvalBot.s
+      At line 262 in file ProjEvalBot.s
+      At line 375 in file ProjEvalBot.s
+
+MOTEUR_GAUCHE_INVERSE 00000000
+
+Symbol: MOTEUR_GAUCHE_INVERSE
+   Definitions
+      At line 62 in file ProjEvalBot.s
+   Uses
+      At line 235 in file ProjEvalBot.s
+      At line 348 in file ProjEvalBot.s
+
+MOTEUR_GAUCHE_OFF 00000000
+
+Symbol: MOTEUR_GAUCHE_OFF
+   Definitions
+      At line 59 in file ProjEvalBot.s
+   Uses
+      At line 205 in file ProjEvalBot.s
+      At line 218 in file ProjEvalBot.s
+      At line 244 in file ProjEvalBot.s
+      At line 268 in file ProjEvalBot.s
+      At line 274 in file ProjEvalBot.s
+      At line 331 in file ProjEvalBot.s
+      At line 357 in file ProjEvalBot.s
+      At line 369 in file ProjEvalBot.s
+      At line 393 in file ProjEvalBot.s
+      At line 399 in file ProjEvalBot.s
+
+MOTEUR_GAUCHE_ON 00000000
+
+Symbol: MOTEUR_GAUCHE_ON
+   Definitions
+      At line 58 in file ProjEvalBot.s
+   Uses
+      At line 136 in file ProjEvalBot.s
+      At line 197 in file ProjEvalBot.s
+      At line 250 in file ProjEvalBot.s
+      At line 256 in file ProjEvalBot.s
+      At line 280 in file ProjEvalBot.s
+      At line 286 in file ProjEvalBot.s
+
+
+
+ARM Macro Assembler    Page 3 Alphabetic symbol ordering
+External symbols
+
+      At line 292 in file ProjEvalBot.s
+      At line 363 in file ProjEvalBot.s
+      At line 381 in file ProjEvalBot.s
+      At line 387 in file ProjEvalBot.s
+      At line 405 in file ProjEvalBot.s
+
+MOTEUR_INIT 00000000
+
+Symbol: MOTEUR_INIT
+   Definitions
+      At line 50 in file ProjEvalBot.s
+   Uses
+      At line 123 in file ProjEvalBot.s
+Comment: MOTEUR_INIT used once
+11 symbols
+382 symbols in table
